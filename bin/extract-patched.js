@@ -24,7 +24,11 @@ function Extract(opts) {
     if (entry.type === 'Directory') {
       const dirPath = path.join(opts.path, entry.path)
       if (!fs.existsSync(dirPath)) {
-        fs.mkdirSync(dirPath)
+        try {
+          fs.mkdirSync(dirPath)
+        } catch (err) {
+          console.log('Error creating', dirPath, 'you can probably ignore this')
+        }
       }
       return cb()
     }
