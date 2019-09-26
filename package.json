@@ -1,6 +1,6 @@
 {
   "name": "sawhorse-cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Command-line interface to build sawhorse projects",
   "main": "bin/sawhorse-cli.js",
   "scripts": {
