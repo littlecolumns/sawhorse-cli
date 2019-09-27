@@ -1,4 +1,4 @@
-const Extract = require('./extract-patched')
+const AdmZip = require('adm-zip')
 const request = require('request')
 const tmp = require('tmp')
 const fs = require('fs-extra')
@@ -6,7 +6,7 @@ const path = require('path')
 const glob = require('glob')
 const url = require('url')
 
-function moveContent(extractionDir, targetDir) {
+function moveContent(extractionDir, targetDir, options = {}) {
   glob(path.join(extractionDir, '*'), {}, function(err, files) {
     if (err) {
       return
@@ -14,8 +14,15 @@ function moveContent(extractionDir, targetDir) {
     console.log('Found', files.map(filename => path.basename(filename)))
     console.log('Replacing content in', targetDir)
     files.forEach(source => {
+      console.log(options.include)
+      const skip =
+        options.include && !options.include.find(str => source.includes(str))
+      if (skip) {
+        console.log('Skipping', path.basename(source))
+        return
+      }
       const target = path.join(targetDir, path.basename(source))
-      fs.move(source, target, { overwrite: true })
+      fs.moveSync(source, target, { overwrite: true })
     })
     const relativeTarget = path.relative('./', targetDir)
     console.log('Done!')
@@ -28,52 +35,53 @@ function moveContent(extractionDir, targetDir) {
   })
 }
 
-function extractZip(zipfile, destination) {
-  tmp.dir({ prefix: 'sawhorse_' }, (err, extractionDir) => {
-    if (err) {
-      console.log('Failed to create temporary directory')
-      return
-    }
-    console.log(`Extracting into is ${extractionDir}`)
+function extractZip(zipfile) {
+  return new Promise((resolve, reject) => {
+    tmp.dir({ prefix: 'sawhorse_' }, (err, extractionDir) => {
+      if (err) {
+        reject(err)
+        return
+      }
+      console.log(`Extracting into ${extractionDir}`)
 
-    fs.createReadStream(zipfile)
-      .pipe(Extract({ path: extractionDir }))
-      .on('entry', function(filename) {
-        console.log(`Extracting ${filename}`)
-      })
-      .on('close', d => {
-        moveContent(extractionDir, destination)
-      })
+      const zip = AdmZip(zipfile)
+      zip.extractAllTo(extractionDir)
+      resolve(extractionDir)
+    })
   })
 }
 
-function processUrl(url, destination) {
-  tmp.file({ prefix: 'sawhorse_', postfix: '.zip' }, (err, zipfile) => {
-    if (err) {
-      console.log('Failed to create temporary file')
-      return
-    }
+function processUrl(url) {
+  return new Promise((resolve, reject) => {
+    tmp.file({ prefix: 'sawhorse_', postfix: '.zip' }, (err, zipfile) => {
+      if (err) {
+        reject(err)
+        return
+      }
 
-    console.log('Downloading', url)
+      console.log('Downloading', url)
 
-    request(url)
-      .pipe(fs.createWriteStream(zipfile))
-      .on('finish', function() {
-        console.log(`Saved as ${zipfile}`)
-        extractZip(zipfile, destination)
-      })
+      request(url)
+        .pipe(fs.createWriteStream(zipfile))
+        .on('finish', function() {
+          console.log(`Saved as ${zipfile}`)
+          resolve(zipfile)
+        })
+    })
   })
 }
 
-function copyContent(sourceDir, destination) {
-  tmp.dir({ prefix: 'sawhorse_' }, (err, copyDir) => {
-    if (err) {
-      console.log('Failed to create temporary directory')
-      return
-    }
-    console.log(`Temporarily copying into is ${copyDir}`)
-    fs.copySync(sourceDir, copyDir)
-    moveContent(copyDir, destination)
+function copyToTempDir(sourceDir) {
+  return new Promise((resolve, reject) => {
+    tmp.dir({ prefix: 'sawhorse_' }, (err, copyDir) => {
+      if (err) {
+        reject(err)
+        return
+      }
+      console.log(`Temporarily copying into is ${copyDir}`)
+      fs.copySync(sourceDir, copyDir)
+      resolve(copyDir)
+    })
   })
 }
 
@@ -86,10 +94,15 @@ function isUrl(source) {
   }
 }
 
-function process(source, destination) {
+function process(source, destination, options) {
+  function sendToDestination(contentSource) {
+    return moveContent(contentSource, destination, options)
+  }
+
   if (isUrl(source)) {
-    processUrl(source, destination)
-    return
+    return processUrl(source)
+      .then(extractZip)
+      .then(sendToDestination)
   }
 
   if (!fs.existsSync(source)) {
@@ -99,9 +112,9 @@ function process(source, destination) {
 
   const stats = fs.statSync(source)
   if (stats.isFile()) {
-    extractZip(source, destination)
+    return extractZip(source).then(sendToDestination)
   } else {
-    copyContent(source, destination)
+    return copyToTempDir(source).then(sendToDestination)
   }
 }
 

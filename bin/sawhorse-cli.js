@@ -3,11 +3,13 @@
 const program = require('commander')
 const inquirer = require('inquirer')
 const request = require('request')
-const unzipper = require('unzipper')
 const fs = require('fs-extra')
 const path = require('path')
 const tmp = require('tmp')
 const Templateer = require('./templateer')
+const AdmZip = require('adm-zip')
+const glob = require('glob')
+const archiver = require('archiver')
 
 function buildProject(options) {
   const targetDir = path.resolve('./', options.name)
@@ -17,22 +19,75 @@ function buildProject(options) {
 
   const url = 'https://github.com/littlecolumns/sawhorse/archive/master.zip'
 
+  const tmpZip = tmp.fileSync({ prefix: 'sawhorse_', postfix: '.zip' })
   const tmpDir = tmp.dirSync()
 
   console.log('Downloading and extracting sawhorse source from', url)
 
   request(url)
-    .pipe(unzipper.Extract({ path: tmpDir.name }))
+    .pipe(fs.createWriteStream(tmpZip.name))
     .on('finish', () => {
+      const zip = new AdmZip(tmpZip.name)
+      zip.extractAllTo(tmpDir.name, true)
+
       const sourceDir = path.join(tmpDir.name, 'sawhorse-master')
       console.log('Installing base at', targetDir)
-      fs.move(sourceDir, targetDir, { overwrite: true })
+      fs.moveSync(sourceDir, targetDir, { overwrite: true })
       if (options.template) {
         console.log('Installing template')
-        Templateer.process(options.template, targetDir)
+        Templateer.process(options.template, targetDir).then(() => {
+          console.log('Done')
+        })
       }
     })
 }
+
+function importTemplate(options) {
+  const targetDir = path.resolve('.')
+  Templateer.process(options.template, targetDir, options).then(() => {
+    console.log('Done')
+  })
+}
+
+function createTemplate(options) {
+  if (!options.include) return
+  return new Promise((resolve, reject) => {
+    const filename = options.output || 'template.zip'
+    const output = fs.createWriteStream(filename)
+    const archive = archiver('zip')
+
+    output.on('error', function(err) {
+      reject(err)
+    })
+
+    output.on('close', function() {
+      resolve()
+    })
+    archive.pipe(output)
+
+    console.log('Scanning for files')
+    options.include.forEach(selector => archive.glob(selector))
+
+    console.log('Writing', filename)
+    archive.finalize()
+  })
+}
+
+program
+  .command('generate')
+  .option('-O, --output <path>', 'filename for .zip creation')
+  .option('-I, --include <paths>', 'top-level folders to process', value =>
+    value.split(',')
+  )
+  .action(createTemplate)
+
+program
+  .command('import')
+  .option('-T, --template <path>', 'link to a .zip template file')
+  .option('-I, --include <paths>', 'top-level folders to process', value =>
+    value.split(',')
+  )
+  .action(importTemplate)
 
 program
   .command('create <name>')

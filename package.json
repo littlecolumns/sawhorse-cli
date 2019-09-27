@@ -26,6 +26,8 @@
   },
   "homepage": "https://github.com/littlecolumns/sawhorse-cli#readme",
   "dependencies": {
+    "adm-zip": "^0.4.13",
+    "archiver": "^3.1.1",
     "commander": "^3.0.2",
     "fs-extra": "^8.1.0",
     "inquirer": "^7.0.0",
