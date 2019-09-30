@@ -74,7 +74,7 @@ function createTemplate(options) {
 }
 
 program
-  .command('generate')
+  .command('package')
   .option('-O, --output <path>', 'filename for .zip creation')
   .option('-I, --include <paths>', 'top-level folders to process', value =>
     value.split(',')

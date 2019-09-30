@@ -19,11 +19,11 @@ sawhorse import -T [folder,path,url] --include [folders,paths]
 
 * If specified, only updates top-level elements matching `--include``.
 
-## Creating a template
+## Packaging a template
 
 ```
 cd my-project
-sawhorse generate --include [glob list] --output [filename]
+sawhorse package --include [glob list] --output [filename]
 ```
 
 ## For example
@@ -45,9 +45,9 @@ sawhorse import -T http://example.com/template.zip --include README.md,html
 ```
 
 ```
-sawhorse generate --include src/**,README.md,tests/** --output hw-template.zip
+sawhorse package --include src/**,README.md,tests/** --output hw-template.zip
 ```
 
 ```
-sawhorse generate --include src/**,README.md,tests/** --output hw-template.zip
+sawhorse package --include src/**,README.md,tests/** --output hw-template.zip
 ```
