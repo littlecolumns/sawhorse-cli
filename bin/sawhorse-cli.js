@@ -17,6 +17,15 @@ function buildProject(options) {
     return
   }
 
+  if (options.setup === 'basic') {
+    options.template =
+      'https://github.com/littlecolumns/sawhorse/raw/master/templates/basic.zip'
+  }
+  if (options.setup === 'empty') {
+    options.template =
+      'https://github.com/littlecolumns/sawhorse/raw/master/templates/empty.zip'
+  }
+
   const url = 'https://github.com/littlecolumns/sawhorse/archive/master.zip'
 
   const tmpZip = tmp.fileSync({ prefix: 'sawhorse_', postfix: '.zip' })
@@ -106,7 +115,8 @@ program
         message: 'What kind of starter project would you like?',
         choices: [
           {
-            name: 'A basic project with a few templates to build on',
+            name:
+              'A basic project with a few templates to build on (recommended)',
             value: 'basic'
           },
           {
@@ -121,7 +131,7 @@ program
         default: options.template ? 2 : 0
       },
       {
-        when: responses => responses.setup == 'template',
+        when: responses => responses.setup === 'template',
         type: 'text',
         name: 'template',
         message: 'Enter template path (folder or zip) or URL (zip only)',

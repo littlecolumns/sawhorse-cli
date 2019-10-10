@@ -14,7 +14,9 @@ function moveContent(extractionDir, targetDir, options = {}) {
     console.log('Found', files.map(filename => path.basename(filename)))
     console.log('Replacing content in', targetDir)
     files.forEach(source => {
-      console.log(options.include)
+      if (options.include) {
+        console.log(options.include)
+      }
       const skip =
         options.include && !options.include.find(str => source.includes(str))
       if (skip) {
